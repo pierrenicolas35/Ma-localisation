@@ -93,12 +93,7 @@
     const minutesNotTruncated = (absolute - degrees) * 60;
     const minutes = Math.floor(minutesNotTruncated);
     const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
-    let direction = "";
-    if (isLat) {
-      direction = deg >= 0 ? "N" : "S";
-    } else {
-      direction = deg >= 0 ? "E" : "O";
-    }
+    const direction = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "O");
     return `${degrees}°${minutes}'${seconds}"${direction}`;
   }
 
@@ -168,49 +163,76 @@
   }
 
   async function fetchNearestHospital(lat, lon) {
-    // Filtre strict sur les services d'urgence hospitaliers
-    const query = `[out:json];
-      (
-        node["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
-        way["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
-        relation["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
-        node["emergency"="emergency_ward_entrance"](around:50000,${lat},${lon});
-      );
-      out center body;`;
+    document.getElementById('hospital-info').innerText = "Recherche en cours...";
     
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    // TENTATIVE 1 : Requête Overpass simplifiée et robuste
+    const overpassQuery = `[out:json][timeout:10];(node["amenity"="hospital"](around:40000,${lat},${lon});way["amenity"="hospital"](around:40000,${lat},${lon}););out center 15;`;
+    const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(overpassUrl);
+      if (!response.ok) throw new Error("Overpass indisponible");
       const data = await response.json();
+
       if (data.elements && data.elements.length > 0) {
         let minDistance = Infinity;
         let nearestName = "";
 
-        data.elements.forEach(h => {
-          const hLat = h.lat || (h.center && h.center.lat);
-          const hLon = h.lon || (h.center && h.center.lon);
+        // Mots clés à exclure formellement
+        const excludeKeywords = ["ferme", "ehpad", "mso", "psychiatrique", "thérapeutique", "dispensaire", "formation", "soins de suite", "ssr"];
 
-          if (hLat && hLon) {
-            const dist = getDistanceKm(lat, lon, hLat, hLon);
-            if (dist < minDistance) {
-              minDistance = dist;
-              nearestName = (h.tags && h.tags.name) ? h.tags.name : "Centre Hospitalier (Urgences)";
+        data.elements.forEach(h => {
+          const name = (h.tags && h.tags.name) ? h.tags.name : "";
+          const nameLower = name.toLowerCase();
+
+          // Vérifier si le nom contient un mot à exclure
+          const isExcluded = excludeKeywords.some(kw => nameLower.includes(kw));
+
+          if (!isExcluded && name !== "") {
+            const hLat = h.lat || (h.center && h.center.lat);
+            const hLon = h.lon || (h.center && h.center.lon);
+
+            if (hLat && hLon) {
+              const dist = getDistanceKm(lat, lon, hLat, hLon);
+              if (dist < minDistance) {
+                minDistance = dist;
+                nearestName = name;
+              }
             }
           }
         });
 
         if (minDistance !== Infinity) {
           currentData.hospital = `${nearestName} (${minDistance.toFixed(1)} km)`;
-        } else {
-          currentData.hospital = "Aucun hôpital d'urgence dans un rayon de 50 km";
+          document.getElementById('hospital-info').innerText = currentData.hospital;
+          updateSMSLink();
+          return;
         }
+      }
+    } catch (e) {
+      console.warn("Échec Overpass, bascule sur l'API de secours :", e);
+    }
+
+    // TENTATIVE 2 (SECOURS) : API adresse.data.gouv.fr ciblée sur les CHU/Hôpitaux
+    try {
+      const backupUrl = `https://api-adresse.data.gouv.fr/search/?q=centre+hospitalier&lat=${lat}&lon=${lon}&type=housecode&limit=5`;
+      const res = await fetch(backupUrl);
+      const data = await res.json();
+
+      if (data.features && data.features.length > 0) {
+        let bestMatch = data.features[0];
+        let hLat = bestMatch.geometry.coordinates[1];
+        let hLon = bestMatch.geometry.coordinates[0];
+        let dist = getDistanceKm(lat, lon, hLat, hLon);
+
+        currentData.hospital = `${bestMatch.properties.name || "Centre Hospitalier"} (${dist.toFixed(1)} km)`;
       } else {
-        currentData.hospital = "Aucun hôpital d'urgence dans un rayon de 50 km";
+        currentData.hospital = "Non trouvé à proximité";
       }
     } catch {
-      currentData.hospital = "Erreur de recherche d'hôpital d'urgence";
+      currentData.hospital = "Indisponible (Erreur réseau)";
     }
+
     document.getElementById('hospital-info').innerText = currentData.hospital;
     updateSMSLink();
   }
@@ -220,7 +242,7 @@
       `• Adresse : ${currentData.address}\n` +
       `• GPS (DD) : ${currentData.dd}\n` +
       `• GPS (DMS) : ${currentData.dms}\n` +
-      `• Hôpital d'urgence : ${currentData.hospital}\n` +
+      `• Hôpital le + proche : ${currentData.hospital}\n` +
       `• Maps : https://maps.google.com/?q=${currentData.lat},${currentData.lon}`;
 
     const smsBtn = document.getElementById('btn-sms');
