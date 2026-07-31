@@ -63,7 +63,7 @@
         <span class="info-val" id="gps-dms">-</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Hôpital proche</span>
+        <span class="info-label">Urgences proches</span>
         <span class="info-val" id="hospital-name">Calcul...</span>
       </div>
       <div class="info-row">
@@ -91,6 +91,19 @@
     hospitalName: 'Non calculé',
     hospitalAddr: 'Non déterminée'
   };
+
+  // Liste stricte des mots-clés d'exclusion
+  const EXCLUDED_KEYWORDS = [
+    "psychiatrique", "psychiatrie", "psychique", "sante mentale", "chs", "cmp", 
+    "médico-psychologique", "ferme", "ehpad", "mso", "thérapeutique", "dispensaire", 
+    "formation", "ssr", "soins de suite", "réadaptation", "geriatrique", "maison de retraite"
+  ];
+
+  function isExcluded(name) {
+    if (!name) return true;
+    const cleanName = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return EXCLUDED_KEYWORDS.some(kw => cleanName.includes(kw));
+  }
 
   function toDMS(deg, isLat) {
     const absolute = Math.abs(deg);
@@ -171,40 +184,40 @@
     document.getElementById('hospital-name').innerText = "Recherche en cours...";
     document.getElementById('hospital-address').innerText = "Recherche en cours...";
 
-    // Option A : Recherche directe par API BAN (DataGouv) -> Plus rapide et adresses garanties en France
+    // OPTION 1 : API BAN (DataGouv) avec requête ciblée "urgences centre hospitalier"
     try {
-      const banUrl = `https://api-adresse.data.gouv.fr/search/?q=centre+hospitalier&lat=${lat}&lon=${lon}&type=housecode&limit=10`;
+      const banUrl = `https://api-adresse.data.gouv.fr/search/?q=urgences+centre+hospitalier&lat=${lat}&lon=${lon}&limit=15`;
       const res = await fetch(banUrl);
       const data = await res.json();
 
       if (data.features && data.features.length > 0) {
-        // Mots-clés à écarter
-        const exclude = ["ferme", "ehpad", "mso", "psychiatrique", "thérapeutique", "dispensaire", "formation", "ssr", "maternité"];
-        
-        const validHospitals = data.features.filter(f => {
-          const name = (f.properties.name || "").toLowerCase();
-          return !exclude.some(kw => name.includes(kw));
-        });
+        // Filtrer les éléments psychiatriques et spécialisés
+        const validHospitals = data.features.filter(f => !isExcluded(f.properties.name));
 
-        const target = validHospitals.length > 0 ? validHospitals[0] : data.features[0];
-        
-        const hLon = target.geometry.coordinates[0];
-        const hLat = target.geometry.coordinates[1];
-        const dist = getDistanceKm(lat, lon, hLat, hLon);
+        if (validHospitals.length > 0) {
+          const target = validHospitals[0];
+          const hLon = target.geometry.coordinates[0];
+          const hLat = target.geometry.coordinates[1];
+          const dist = getDistanceKm(lat, lon, hLat, hLon);
 
-        currentData.hospitalName = `${target.properties.name || "Centre Hospitalier"} (${dist.toFixed(1)} km)`;
-        currentData.hospitalAddr = `${target.properties.housenumber || ''} ${target.properties.street || ''}, ${target.properties.postcode || ''} ${target.properties.city || ''}`.trim().replace(/^,/, '');
+          currentData.hospitalName = `${target.properties.name || "Centre Hospitalier Général"} (${dist.toFixed(1)} km)`;
+          currentData.hospitalAddr = `${target.properties.housenumber || ''} ${target.properties.street || ''}, ${target.properties.postcode || ''} ${target.properties.city || ''}`.trim().replace(/^,/, '');
 
-        renderHospitalData();
-        return;
+          renderHospitalData();
+          return;
+        }
       }
     } catch (e) {
-      console.warn("Échec API BAN, bascule sur Overpass", e);
+      console.warn("Échec API BAN, tentative Overpass", e);
     }
 
-    // Option B : Fallback Overpass OSM
+    // OPTION 2 : Overpass API avec filtre strict emergency=yes
     try {
-      const overpassQuery = `[out:json][timeout:10];(node["amenity"="hospital"](around:40000,${lat},${lon});way["amenity"="hospital"](around:40000,${lat},${lon}););out center 10;`;
+      const overpassQuery = `[out:json][timeout:10];
+        (
+          node["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
+          way["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
+        );out center 15;`;
       const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
       const response = await fetch(overpassUrl);
       const data = await response.json();
@@ -215,7 +228,7 @@
 
         data.elements.forEach(h => {
           const name = (h.tags && h.tags.name) ? h.tags.name : "";
-          if (name) {
+          if (name && !isExcluded(name)) {
             const hLat = h.lat || (h.center && h.center.lat);
             const hLon = h.lon || (h.center && h.center.lon);
             if (hLat && hLon) {
@@ -231,23 +244,17 @@
         if (bestItem) {
           currentData.hospitalName = `${bestItem.name} (${minDistance.toFixed(1)} km)`;
           
-          // Reconstitution de l'adresse depuis les tags OSM si disponibles
-          const street = bestItem.tags['addr:street'] || '';
-          const city = bestItem.tags['addr:city'] || '';
-          const postcode = bestItem.tags['addr:postcode'] || '';
-
-          if (street || city) {
-            currentData.hospitalAddr = `${street} ${postcode} ${city}`.trim();
+          // Reverse geocoding pour l'adresse propre
+          const revRes = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${bestItem.lon}&lat=${bestItem.lat}`);
+          const revData = await revRes.json();
+          if (revData.features && revData.features.length > 0) {
+            currentData.hospitalAddr = revData.features[0].properties.label;
           } else {
-            // Tentative ultime reverse geocoding
-            const revRes = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${bestItem.lon}&lat=${bestItem.lat}`);
-            const revData = await revRes.json();
-            if (revData.features && revData.features.length > 0) {
-              currentData.hospitalAddr = revData.features[0].properties.label;
-            } else {
-              currentData.hospitalAddr = "Adresse non disponible";
-            }
+            const street = bestItem.tags['addr:street'] || '';
+            const city = bestItem.tags['addr:city'] || '';
+            currentData.hospitalAddr = `${street} ${city}`.trim() || "Adresse non disponible";
           }
+
           renderHospitalData();
           return;
         }
@@ -256,8 +263,8 @@
       console.error("Échec global hôpitaux :", e);
     }
 
-    currentData.hospitalName = "Non déterminé";
-    currentData.hospitalAddr = "Non disponible";
+    currentData.hospitalName = "Centre Hospitalier Général non identifié";
+    currentData.hospitalAddr = "Veuillez contacter le 112 ou 15";
     renderHospitalData();
   }
 
@@ -272,7 +279,7 @@
       `• Mon adresse : ${currentData.address}\n` +
       `• GPS (DD) : ${currentData.dd}\n` +
       `• GPS (DMS) : ${currentData.dms}\n` +
-      `• Hôpital proche : ${currentData.hospitalName}\n` +
+      `• Urgences proches : ${currentData.hospitalName}\n` +
       `• Adresse Hôpital : ${currentData.hospitalAddr}\n` +
       `• Maps : https://maps.google.com/?q=${currentData.lat},${currentData.lon}`;
 
