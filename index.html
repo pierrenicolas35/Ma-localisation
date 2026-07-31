@@ -26,7 +26,7 @@
     .info-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
     .info-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
     .info-label { font-weight: 600; color: var(--muted); }
-    .info-val { font-weight: 500; text-align: right; word-break: break-word; }
+    .info-val { font-weight: 500; text-align: right; word-break: break-word; max-width: 65%; }
 
     .status { padding: 10px; border-radius: 8px; font-size: 0.875rem; background: #e0f2fe; color: #0369a1; text-align: center; font-weight: 500; }
 
@@ -63,7 +63,7 @@
         <span class="info-val" id="gps-dms">-</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Hôpital / CHU le + proche</span>
+        <span class="info-label">Urgences les + proches</span>
         <span class="info-val" id="hospital-info">Calcul...</span>
       </div>
       <div class="accuracy" id="accuracy-info"></div>
@@ -168,7 +168,16 @@
   }
 
   async function fetchNearestHospital(lat, lon) {
-    const query = `[out:json];node["amenity"="hospital"](around:30000,${lat},${lon});out body;`;
+    // Filtre strict sur les services d'urgence hospitaliers
+    const query = `[out:json];
+      (
+        node["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
+        way["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
+        relation["amenity"="hospital"]["emergency"="yes"](around:50000,${lat},${lon});
+        node["emergency"="emergency_ward_entrance"](around:50000,${lat},${lon});
+      );
+      out center body;`;
+    
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
     try {
@@ -179,19 +188,28 @@
         let nearestName = "";
 
         data.elements.forEach(h => {
-          const dist = getDistanceKm(lat, lon, h.lat, h.lon);
-          if (dist < minDistance) {
-            minDistance = dist;
-            nearestName = h.tags.name || "Centre Hospitalier";
+          const hLat = h.lat || (h.center && h.center.lat);
+          const hLon = h.lon || (h.center && h.center.lon);
+
+          if (hLat && hLon) {
+            const dist = getDistanceKm(lat, lon, hLat, hLon);
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestName = (h.tags && h.tags.name) ? h.tags.name : "Centre Hospitalier (Urgences)";
+            }
           }
         });
 
-        currentData.hospital = `${nearestName} (${minDistance.toFixed(1)} km)`;
+        if (minDistance !== Infinity) {
+          currentData.hospital = `${nearestName} (${minDistance.toFixed(1)} km)`;
+        } else {
+          currentData.hospital = "Aucun hôpital d'urgence dans un rayon de 50 km";
+        }
       } else {
-        currentData.hospital = "Aucun hôpital trouvé dans un rayon de 30 km";
+        currentData.hospital = "Aucun hôpital d'urgence dans un rayon de 50 km";
       }
     } catch {
-      currentData.hospital = "Erreur de recherche d'hôpital";
+      currentData.hospital = "Erreur de recherche d'hôpital d'urgence";
     }
     document.getElementById('hospital-info').innerText = currentData.hospital;
     updateSMSLink();
@@ -202,13 +220,13 @@
       `• Adresse : ${currentData.address}\n` +
       `• GPS (DD) : ${currentData.dd}\n` +
       `• GPS (DMS) : ${currentData.dms}\n` +
+      `• Hôpital d'urgence : ${currentData.hospital}\n` +
       `• Maps : https://maps.google.com/?q=${currentData.lat},${currentData.lon}`;
 
     const smsBtn = document.getElementById('btn-sms');
     smsBtn.href = `sms:?body=${encodeURIComponent(message)}`;
   }
 
-  // Lancement automatique au chargement
   window.onload = getLocation;
 </script>
 
