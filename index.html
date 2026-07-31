@@ -215,32 +215,37 @@
           const nearest = candidates[0];
           currentData.hospitalName = `${nearest.name} (${nearest.dist.toFixed(1)} km)`;
 
-          // Récupération sécurisée et complète de l'adresse (Numéro, Rue, Code Postal, Ville)
+          // Geocoding inverse
           try {
             const revRes = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${nearest.lon}&lat=${nearest.lat}`);
             const revData = await revRes.json();
             if (revData.features && revData.features.length > 0) {
               const props = revData.features[0].properties;
-              const num = props.housenumber || '';
-              const street = props.street || '';
-              const postcode = props.postcode || '';
-              const city = props.city || '';
               
-              let fullAddr = `${num} ${street}`.trim();
-              if (postcode || city) {
-                fullAddr += `, ${postcode} ${city}`.trim();
+              // Extraction explicite de la commune (city / citycode / context)
+              const city = props.city || props.town || props.village || '';
+              const postcode = props.postcode || '';
+              const street = props.street || props.name || '';
+              const housenumber = props.housenumber || '';
+
+              let streetPart = `${housenumber} ${street}`.trim();
+              let cityPart = `${postcode} ${city}`.trim();
+
+              if (streetPart && cityPart) {
+                currentData.hospitalAddr = `${streetPart}, ${cityPart}`;
+              } else if (cityPart) {
+                currentData.hospitalAddr = `${props.label || streetPart}, ${cityPart}`;
+              } else {
+                currentData.hospitalAddr = props.label || "Adresse non disponible";
               }
-              currentData.hospitalAddr = fullAddr || props.label || "Adresse non disponible";
             } else {
               throw new Error();
             }
           } catch {
-            // Fallback sur les tags OpenStreetMap si le reverse geocoding échoue
-            const num = nearest.tags['addr:housenumber'] || '';
-            const street = nearest.tags['addr:street'] || '';
             const postcode = nearest.tags['addr:postcode'] || '';
             const city = nearest.tags['addr:city'] || '';
-            currentData.hospitalAddr = `${num} ${street}, ${postcode} ${city}`.trim().replace(/^,/, '') || "Adresse non disponible";
+            const street = nearest.tags['addr:street'] || '';
+            currentData.hospitalAddr = `${street}, ${postcode} ${city}`.trim().replace(/^,/, '') || "Adresse non disponible";
           }
 
           renderHospitalData();
