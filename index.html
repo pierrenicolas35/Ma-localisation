@@ -183,7 +183,6 @@
     document.getElementById('hospital-name').innerText = "Recherche en cours...";
     document.getElementById('hospital-address').innerText = "Recherche en cours...";
 
-    // Requête stricte par rayon géographique autour des coordonnées utilisateur (rayon de 40 km)
     const overpassQuery = `[out:json][timeout:15];
       (
         node["amenity"="hospital"](around:40000,${lat},${lon});
@@ -210,24 +209,38 @@
           }
         });
 
-        // Tri strict par la vraie distance kilométrique
         candidates.sort((a, b) => a.dist - b.dist);
 
         if (candidates.length > 0) {
           const nearest = candidates[0];
           currentData.hospitalName = `${nearest.name} (${nearest.dist.toFixed(1)} km)`;
 
-          // Geocoding inverse pour récuperer l'adresse de l'hôpital le plus proche trouvé
+          // Récupération sécurisée et complète de l'adresse (Numéro, Rue, Code Postal, Ville)
           try {
             const revRes = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${nearest.lon}&lat=${nearest.lat}`);
             const revData = await revRes.json();
             if (revData.features && revData.features.length > 0) {
-              currentData.hospitalAddr = revData.features[0].properties.label;
+              const props = revData.features[0].properties;
+              const num = props.housenumber || '';
+              const street = props.street || '';
+              const postcode = props.postcode || '';
+              const city = props.city || '';
+              
+              let fullAddr = `${num} ${street}`.trim();
+              if (postcode || city) {
+                fullAddr += `, ${postcode} ${city}`.trim();
+              }
+              currentData.hospitalAddr = fullAddr || props.label || "Adresse non disponible";
             } else {
-              currentData.hospitalAddr = `${nearest.tags['addr:street'] || ''} ${nearest.tags['addr:city'] || ''}`.trim() || "Adresse non disponible";
+              throw new Error();
             }
           } catch {
-            currentData.hospitalAddr = "Adresse non disponible";
+            // Fallback sur les tags OpenStreetMap si le reverse geocoding échoue
+            const num = nearest.tags['addr:housenumber'] || '';
+            const street = nearest.tags['addr:street'] || '';
+            const postcode = nearest.tags['addr:postcode'] || '';
+            const city = nearest.tags['addr:city'] || '';
+            currentData.hospitalAddr = `${num} ${street}, ${postcode} ${city}`.trim().replace(/^,/, '') || "Adresse non disponible";
           }
 
           renderHospitalData();
@@ -238,7 +251,7 @@
       console.error("Erreur recherche hôpitaux :", e);
     }
 
-    currentData.hospitalName = "Centre Hospitalier Général non trouvé";
+    currentData.hospitalName = "Centre Hospitalier non trouvé";
     currentData.hospitalAddr = "Consulter le 15 / 112";
     renderHospitalData();
   }
