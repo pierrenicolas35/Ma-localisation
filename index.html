@@ -3,285 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ma Localisation & Urgences</title>
+  <link rel="manifest" href="manifest.json">
+  <title>Sécurité Famille</title>
   <style>
-    :root {
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --primary: #2563eb;
-      --danger: #dc2626;
-      --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 16px; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 16px; }
-
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    h1 { font-size: 1.25rem; margin-bottom: 4px; }
-    p.subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 12px; }
-
-    .info-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-    .info-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
-    .info-label { font-weight: 600; color: var(--muted); min-width: 120px; }
-    .info-val { font-weight: 500; text-align: right; word-break: break-word; flex-grow: 1; }
-
-    .status { padding: 10px; border-radius: 8px; font-size: 0.875rem; background: #e0f2fe; color: #0369a1; text-align: center; font-weight: 500; }
-
-    .btn-group { display: flex; flex-direction: column; gap: 10px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 14px; border-radius: 10px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-size: 1rem; gap: 8px; transition: opacity 0.2s; }
-    .btn:active { opacity: 0.8; }
-    .btn-primary { background-color: var(--primary); color: white; }
-    .btn-danger { background-color: var(--danger); color: white; }
-    .btn-secondary { background-color: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
-
-    .accuracy { font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: 4px; }
+    :root { --red: #e11d48; --blue: #2563eb; --bg: #f1f5f9; --text: #0f172a; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .data-row { margin-bottom: 15px; }
+    .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .val { font-size: 1rem; font-weight: 600; margin-top: 4px; }
+    .btn { display: block; width: 100%; padding: 20px; border-radius: 12px; border: none; font-size: 1.2rem; font-weight: 800; text-align: center; text-decoration: none; margin-bottom: 15px; color: white; transition: transform 0.1s; }
+    .btn:active { transform: scale(0.98); }
+    .btn-sos { background: var(--red); }
+    .btn-live { background: var(--blue); }
+    #config { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 20px; cursor: pointer; }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="card">
-    <h1>📍 Localisation Précise</h1>
-    <p class="subtitle">Position et calcul des urgences à proximité</p>
-    
-    <div id="status" class="status">Recherche de la position GPS...</div>
-    
-    <div class="info-group" id="coords-block" style="display:none;">
-      <div class="info-row">
-        <span class="info-label">Adresse actuelle</span>
-        <span class="info-val" id="address">Recherche...</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">GPS (DD)</span>
-        <span class="info-val" id="gps-dd">-</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">GPS (DMS)</span>
-        <span class="info-val" id="gps-dms">-</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Hôpital proche</span>
-        <span class="info-val" id="hospital-name">Calcul...</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Adresse Hôpital</span>
-        <span class="info-val" id="hospital-address">Calcul...</span>
-      </div>
-      <div class="accuracy" id="accuracy-info"></div>
-    </div>
+<div class="card">
+  <div class="data-row">
+    <div class="label">Adresse actuelle</div>
+    <div class="val" id="address">Calcul...</div>
   </div>
-
-  <div class="btn-group">
-    <button id="btn-refresh" class="btn btn-secondary" onclick="getLocation()">🔄 Actualiser la position</button>
-    <a id="btn-sms" class="btn btn-primary" href="#">💬 Envoyer les coordonnées par SMS</a>
-    <a id="btn-call" class="btn btn-danger" href="tel:112">🚨 Appeler les Secours (112)</a>
+  <div class="data-row">
+    <div class="label">GPS (DD)</div>
+    <div class="val" id="gps-dd">-</div>
+  </div>
+  <div class="data-row">
+    <div class="label">GPS (DMS)</div>
+    <div class="val" id="gps-dms">-</div>
   </div>
 </div>
 
+<a id="sos-btn" class="btn btn-sos">SOS URGENT</a>
+<a id="live-btn" class="btn btn-live" target="_blank">SUIVI TEMPS RÉEL</a>
+
+<div id="config" onclick="toggleConfig()">⚙️ Configurer (Lien Live & Numéro)</div>
+
+<div id="config-panel" class="card" style="display:none;">
+  <label>Numéro SMS Urgence :</label>
+  <input id="cfg-phone" style="width:100%; padding:8px; margin: 5px 0 15px;">
+  <label>Lien "Partage de position" (Google Maps) :</label>
+  <input id="cfg-link" style="width:100%; padding:8px; margin: 5px 0 15px;">
+  <button class="btn btn-blue" onclick="saveConfig()" style="padding:10px">Enregistrer</button>
+</div>
+
 <script>
-  let currentData = {
-    lat: null,
-    lon: null,
-    dd: '',
-    dms: '',
-    address: 'Non déterminée',
-    hospitalName: 'Non calculé',
-    hospitalAddr: 'Non déterminée'
-  };
+  let pos = {lat:0, lon:0, dd:'', dms:'', addr:''};
 
-  const EXCLUDED_KEYWORDS = [
-    "psychiatrique", "psychiatrie", "psychique", "sante mentale", "chs", "cmp", 
-    "médico-psychologique", "ferme", "ehpad", "mso", "thérapeutique", "dispensaire", 
-    "formation", "ssr", "soins de suite", "réadaptation", "geriatrique", "maison de retraite", "clinique vétérinaire"
-  ];
-
-  function isExcluded(name) {
-    if (!name) return true;
-    const cleanName = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return EXCLUDED_KEYWORDS.some(kw => cleanName.includes(kw));
+  function toDMS(d, lat) {
+    const deg = Math.floor(Math.abs(d));
+    const min = Math.floor((Math.abs(d) - deg) * 60);
+    const sec = ((Math.abs(d) - deg - min/60) * 3600).toFixed(0);
+    const dir = lat ? (d >= 0 ? "N" : "S") : (d >= 0 ? "E" : "O");
+    return `${deg}°${min}'${sec}"${dir}`;
   }
 
-  function toDMS(deg, isLat) {
-    const absolute = Math.abs(deg);
-    const degrees = Math.floor(absolute);
-    const minutesNotTruncated = (absolute - degrees) * 60;
-    const minutes = Math.floor(minutesNotTruncated);
-    const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
-    const direction = isLat ? (deg >= 0 ? "N" : "S") : (deg >= 0 ? "E" : "O");
-    return `${degrees}°${minutes}'${seconds}"${direction}`;
+  navigator.geolocation.watchPosition(p => {
+    pos.lat = p.coords.latitude;
+    pos.lon = p.coords.longitude;
+    pos.dd = `${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)}`;
+    pos.dms = `${toDMS(pos.lat, true)} ${toDMS(pos.lon, false)}`;
+    document.getElementById('gps-dd').innerText = pos.dd;
+    document.getElementById('gps-dms').innerText = pos.dms;
+    
+    fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${pos.lon}&lat=${pos.lat}`)
+      .then(r => r.json())
+      .then(d => {
+        pos.addr = d.features[0]?.properties.label || "Adresse non trouvée";
+        document.getElementById('address').innerText = pos.addr;
+        updateLinks();
+      });
+  }, null, {enableHighAccuracy: true});
+
+  function updateLinks() {
+    const phone = localStorage.getItem('cfg-phone') || "";
+    const link = localStorage.getItem('cfg-link') || "#";
+    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Je suis en difficulté. Voici ma position : ${pos.addr} (GPS: ${pos.dd}). Suivi Live: ${link}`;
+    document.getElementById('live-btn').href = link;
   }
 
-  function getDistanceKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+  function toggleConfig() { document.getElementById('config-panel').style.display = 'block'; }
+  function saveConfig() {
+    localStorage.setItem('cfg-phone', document.getElementById('cfg-phone').value);
+    localStorage.setItem('cfg-link', document.getElementById('cfg-link').value);
+    document.getElementById('config-panel').style.display = 'none';
+    updateLinks();
   }
 
-  function getLocation() {
-    const status = document.getElementById('status');
-    status.innerText = "Localisation GPS en cours...";
-    status.style.display = "block";
-
-    if (!navigator.geolocation) {
-      status.innerText = "La géolocalisation n'est pas supportée par votre navigateur.";
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        const accuracy = Math.round(position.coords.accuracy);
-
-        currentData.lat = lat;
-        currentData.lon = lon;
-        currentData.dd = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-        currentData.dms = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
-
-        document.getElementById('gps-dd').innerText = currentData.dd;
-        document.getElementById('gps-dms').innerText = currentData.dms;
-        document.getElementById('accuracy-info').innerText = `Précision GPS : ~${accuracy} mètres`;
-
-        status.style.display = "none";
-        document.getElementById('coords-block').style.display = "flex";
-
-        fetchAddress(lat, lon);
-        fetchNearestHospital(lat, lon);
-      },
-      error => {
-        status.innerText = "Impossible de récupérer la position (Vérifiez le GPS/Permissions).";
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  }
-
-  async function fetchAddress(lat, lon) {
-    try {
-      const response = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${lon}&lat=${lat}`);
-      const data = await response.json();
-      if (data.features && data.features.length > 0) {
-        currentData.address = data.features[0].properties.label;
-      } else {
-        currentData.address = "Adresse introuvable";
-      }
-    } catch {
-      currentData.address = "Erreur de récupération de l'adresse";
-    }
-    document.getElementById('address').innerText = currentData.address;
-    updateSMSLink();
-  }
-
-  async function fetchNearestHospital(lat, lon) {
-    document.getElementById('hospital-name').innerText = "Recherche en cours...";
-    document.getElementById('hospital-address').innerText = "Recherche en cours...";
-
-    const overpassQuery = `[out:json][timeout:15];
-      (
-        node["amenity"="hospital"](around:40000,${lat},${lon});
-        way["amenity"="hospital"](around:40000,${lat},${lon});
-      );out center;`;
-    const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
-
-    try {
-      const response = await fetch(overpassUrl);
-      const data = await response.json();
-
-      if (data.elements && data.elements.length > 0) {
-        let candidates = [];
-
-        data.elements.forEach(h => {
-          const name = (h.tags && h.tags.name) ? h.tags.name : "";
-          if (name && !isExcluded(name)) {
-            const hLat = h.lat || (h.center && h.center.lat);
-            const hLon = h.lon || (h.center && h.center.lon);
-            if (hLat && hLon) {
-              const dist = getDistanceKm(lat, lon, hLat, hLon);
-              candidates.push({ name, lat: hLat, lon: hLon, dist, tags: h.tags || {} });
-            }
-          }
-        });
-
-        candidates.sort((a, b) => a.dist - b.dist);
-
-        if (candidates.length > 0) {
-          const nearest = candidates[0];
-          currentData.hospitalName = `${nearest.name} (${nearest.dist.toFixed(1)} km)`;
-
-          // Geocoding inverse
-          try {
-            const revRes = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${nearest.lon}&lat=${nearest.lat}`);
-            const revData = await revRes.json();
-            if (revData.features && revData.features.length > 0) {
-              const props = revData.features[0].properties;
-              
-              // Extraction explicite de la commune (city / citycode / context)
-              const city = props.city || props.town || props.village || '';
-              const postcode = props.postcode || '';
-              const street = props.street || props.name || '';
-              const housenumber = props.housenumber || '';
-
-              let streetPart = `${housenumber} ${street}`.trim();
-              let cityPart = `${postcode} ${city}`.trim();
-
-              if (streetPart && cityPart) {
-                currentData.hospitalAddr = `${streetPart}, ${cityPart}`;
-              } else if (cityPart) {
-                currentData.hospitalAddr = `${props.label || streetPart}, ${cityPart}`;
-              } else {
-                currentData.hospitalAddr = props.label || "Adresse non disponible";
-              }
-            } else {
-              throw new Error();
-            }
-          } catch {
-            const postcode = nearest.tags['addr:postcode'] || '';
-            const city = nearest.tags['addr:city'] || '';
-            const street = nearest.tags['addr:street'] || '';
-            currentData.hospitalAddr = `${street}, ${postcode} ${city}`.trim().replace(/^,/, '') || "Adresse non disponible";
-          }
-
-          renderHospitalData();
-          return;
-        }
-      }
-    } catch (e) {
-      console.error("Erreur recherche hôpitaux :", e);
-    }
-
-    currentData.hospitalName = "Centre Hospitalier non trouvé";
-    currentData.hospitalAddr = "Consulter le 15 / 112";
-    renderHospitalData();
-  }
-
-  function renderHospitalData() {
-    document.getElementById('hospital-name').innerText = currentData.hospitalName;
-    document.getElementById('hospital-address').innerText = currentData.hospitalAddr;
-    updateSMSLink();
-  }
-
-  function updateSMSLink() {
-    const message = `Urgence / Localisation :\n` +
-      `• Mon adresse : ${currentData.address}\n` +
-      `• GPS (DD) : ${currentData.dd}\n` +
-      `• GPS (DMS) : ${currentData.dms}\n` +
-      `• Hôpital proche : ${currentData.hospitalName}\n` +
-      `• Adresse Hôpital : ${currentData.hospitalAddr}\n` +
-      `• Maps : https://maps.google.com/?q=${currentData.lat},${currentData.lon}`;
-
-    const smsBtn = document.getElementById('btn-sms');
-    smsBtn.href = `sms:?body=${encodeURIComponent(message)}`;
-  }
-
-  window.onload = getLocation;
+  // Init
+  document.getElementById('cfg-phone').value = localStorage.getItem('cfg-phone') || "";
+  document.getElementById('cfg-link').value = localStorage.getItem('cfg-link') || "";
+  updateLinks();
 </script>
-
 </body>
 </html>
