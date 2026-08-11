@@ -2,85 +2,69 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   <link rel="manifest" href="manifest.json">
+  <!-- Import des icônes Google -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <title>Sécurité Famille</title>
   <style>
     :root { --red: #e11d48; --blue: #2563eb; --bg: #f1f5f9; --text: #0f172a; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; display: flex; justify-content: center; }
+    .app-container { width: 100%; max-width: 500px; }
     .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .data-row { margin-bottom: 15px; }
-    .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
-    .val { font-size: 1rem; font-weight: 600; margin-top: 4px; }
-    .btn { display: block; width: 100%; padding: 20px; border-radius: 12px; border: none; font-size: 1.2rem; font-weight: 800; text-align: center; text-decoration: none; margin-bottom: 15px; color: white; transition: transform 0.1s; }
-    .btn:active { transform: scale(0.98); }
+    .label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 800; }
+    .val { font-size: 0.95rem; font-weight: 600; margin-top: 4px; word-break: break-all; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: 700; text-decoration: none; margin-bottom: 15px; color: white; transition: opacity 0.2s; }
     .btn-sos { background: var(--red); }
     .btn-live { background: var(--blue); }
-    #config { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 20px; cursor: pointer; }
+    .material-icons { font-size: 24px; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="data-row">
-    <div class="label">Adresse actuelle</div>
-    <div class="val" id="address">Calcul...</div>
+<div class="app-container">
+  <div class="card">
+    <div style="margin-bottom:15px"><div class="label">Adresse actuelle</div><div class="val" id="address">Calcul...</div></div>
+    <div><div class="label">GPS (DD)</div><div class="val" id="gps-dd">-</div></div>
   </div>
-  <div class="data-row">
-    <div class="label">GPS (DD)</div>
-    <div class="val" id="gps-dd">-</div>
+
+  <a id="sos-btn" class="btn btn-sos">
+    <span class="material-icons">emergency</span> SOS URGENT
+  </a>
+
+  <a id="live-btn" class="btn btn-live" target="_blank">
+    <span class="material-icons">near_me</span> SUIVI TEMPS RÉEL
+  </a>
+
+  <div id="config" onclick="toggleConfig()" style="text-align:center; font-size:0.8rem; color:#94a3b8; cursor:pointer;">⚙️ Configuration</div>
+
+  <div id="config-panel" class="card" style="display:none;">
+    <label style="font-size: 0.8rem; font-weight:bold;">Numéro SMS Urgence :</label>
+    <input id="cfg-phone" style="width:100%; padding:10px; margin: 5px 0 15px; border-radius:8px; border:1px solid #ccc;">
+    <label style="font-size: 0.8rem; font-weight:bold;">Lien "Partage" (Google Maps) :</label>
+    <input id="cfg-link" style="width:100%; padding:10px; margin: 5px 0 15px; border-radius:8px; border:1px solid #ccc;">
+    <button class="btn btn-live" onclick="saveConfig()" style="padding:10px">Enregistrer</button>
   </div>
-  <div class="data-row">
-    <div class="label">GPS (DMS)</div>
-    <div class="val" id="gps-dms">-</div>
-  </div>
-</div>
-
-<a id="sos-btn" class="btn btn-sos">SOS URGENT</a>
-<a id="live-btn" class="btn btn-live" target="_blank">SUIVI TEMPS RÉEL</a>
-
-<div id="config" onclick="toggleConfig()">⚙️ Configurer (Lien Live & Numéro)</div>
-
-<div id="config-panel" class="card" style="display:none;">
-  <label>Numéro SMS Urgence :</label>
-  <input id="cfg-phone" style="width:100%; padding:8px; margin: 5px 0 15px;">
-  <label>Lien "Partage de position" (Google Maps) :</label>
-  <input id="cfg-link" style="width:100%; padding:8px; margin: 5px 0 15px;">
-  <button class="btn btn-blue" onclick="saveConfig()" style="padding:10px">Enregistrer</button>
 </div>
 
 <script>
-  let pos = {lat:0, lon:0, dd:'', dms:'', addr:''};
-
-  function toDMS(d, lat) {
-    const deg = Math.floor(Math.abs(d));
-    const min = Math.floor((Math.abs(d) - deg) * 60);
-    const sec = ((Math.abs(d) - deg - min/60) * 3600).toFixed(0);
-    const dir = lat ? (d >= 0 ? "N" : "S") : (d >= 0 ? "E" : "O");
-    return `${deg}°${min}'${sec}"${dir}`;
-  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  
+  let pos = {lat:0, lon:0, addr:''};
 
   navigator.geolocation.watchPosition(p => {
-    pos.lat = p.coords.latitude;
-    pos.lon = p.coords.longitude;
-    pos.dd = `${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)}`;
-    pos.dms = `${toDMS(pos.lat, true)} ${toDMS(pos.lon, false)}`;
-    document.getElementById('gps-dd').innerText = pos.dd;
-    document.getElementById('gps-dms').innerText = pos.dms;
-    
+    pos.lat = p.coords.latitude; pos.lon = p.coords.longitude;
+    document.getElementById('gps-dd').innerText = `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}`;
     fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${pos.lon}&lat=${pos.lat}`)
       .then(r => r.json())
-      .then(d => {
-        pos.addr = d.features[0]?.properties.label || "Adresse non trouvée";
-        document.getElementById('address').innerText = pos.addr;
-        updateLinks();
-      });
+      .then(d => { pos.addr = d.features[0]?.properties.label || "Adresse non trouvée"; document.getElementById('address').innerText = pos.addr; updateLinks(); });
   }, null, {enableHighAccuracy: true});
 
   function updateLinks() {
     const phone = localStorage.getItem('cfg-phone') || "";
     const link = localStorage.getItem('cfg-link') || "#";
-    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Je suis en difficulté. Voici ma position : ${pos.addr} (GPS: ${pos.dd}). Suivi Live: ${link}`;
+    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Aide nécessaire. Position: ${pos.addr} | Suivi Live: ${link}`;
     document.getElementById('live-btn').href = link;
   }
 
@@ -92,7 +76,6 @@
     updateLinks();
   }
 
-  // Init
   document.getElementById('cfg-phone').value = localStorage.getItem('cfg-phone') || "";
   document.getElementById('cfg-link').value = localStorage.getItem('cfg-link') || "";
   updateLinks();
