@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   <link rel="manifest" href="manifest.json">
-  <!-- Import des icônes Google -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <title>Sécurité Famille</title>
   <style>
@@ -12,21 +11,35 @@
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; display: flex; justify-content: center; }
     .app-container { width: 100%; max-width: 500px; }
-    .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 800; }
-    .val { font-size: 0.95rem; font-weight: 600; margin-top: 4px; word-break: break-all; }
+    .card { background: white; padding: 18px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .data-group { display: grid; grid-template-columns: 1fr; gap: 15px; }
+    .data-item { border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+    .label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 800; }
+    .val { font-size: 0.9rem; font-weight: 700; margin-top: 2px; word-break: break-all; }
     .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: 700; text-decoration: none; margin-bottom: 15px; color: white; transition: opacity 0.2s; }
     .btn-sos { background: var(--red); }
     .btn-live { background: var(--blue); }
-    .material-icons { font-size: 24px; }
+    .material-icons { font-size: 22px; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <div class="card">
-    <div style="margin-bottom:15px"><div class="label">Adresse actuelle</div><div class="val" id="address">Calcul...</div></div>
-    <div><div class="label">GPS (DD)</div><div class="val" id="gps-dd">-</div></div>
+    <div class="data-group">
+      <div class="data-item">
+        <div class="label">Adresse</div>
+        <div class="val" id="address">Calcul...</div>
+      </div>
+      <div class="data-item">
+        <div class="label">GPS (Décimal)</div>
+        <div class="val" id="gps-dd">-</div>
+      </div>
+      <div class="data-item">
+        <div class="label">GPS (Degrés/Min/Sec)</div>
+        <div class="val" id="gps-dms">-</div>
+      </div>
+    </div>
   </div>
 
   <a id="sos-btn" class="btn btn-sos">
@@ -51,20 +64,38 @@
 <script>
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   
-  let pos = {lat:0, lon:0, addr:''};
+  let pos = {lat:0, lon:0, addr:'', dd:'', dms:''};
+
+  function toDMS(d, lat) {
+    const deg = Math.floor(Math.abs(d));
+    const min = Math.floor((Math.abs(d) - deg) * 60);
+    const sec = ((Math.abs(d) - deg - min/60) * 3600).toFixed(0);
+    const dir = lat ? (d >= 0 ? "N" : "S") : (d >= 0 ? "E" : "O");
+    return `${deg}°${min}'${sec}"${dir}`;
+  }
 
   navigator.geolocation.watchPosition(p => {
-    pos.lat = p.coords.latitude; pos.lon = p.coords.longitude;
-    document.getElementById('gps-dd').innerText = `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}`;
+    pos.lat = p.coords.latitude; 
+    pos.lon = p.coords.longitude;
+    pos.dd = `${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)}`;
+    pos.dms = `${toDMS(pos.lat, true)} / ${toDMS(pos.lon, false)}`;
+    
+    document.getElementById('gps-dd').innerText = pos.dd;
+    document.getElementById('gps-dms').innerText = pos.dms;
+    
     fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${pos.lon}&lat=${pos.lat}`)
       .then(r => r.json())
-      .then(d => { pos.addr = d.features[0]?.properties.label || "Adresse non trouvée"; document.getElementById('address').innerText = pos.addr; updateLinks(); });
+      .then(d => { 
+        pos.addr = d.features[0]?.properties.label || "Adresse non trouvée"; 
+        document.getElementById('address').innerText = pos.addr; 
+        updateLinks(); 
+      });
   }, null, {enableHighAccuracy: true});
 
   function updateLinks() {
     const phone = localStorage.getItem('cfg-phone') || "";
     const link = localStorage.getItem('cfg-link') || "#";
-    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Aide nécessaire. Position: ${pos.addr} | Suivi Live: ${link}`;
+    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Aide nécessaire. Position: ${pos.addr} | GPS(DD): ${pos.dd} | GPS(DMS): ${pos.dms} | Suivi Live: ${link}`;
     document.getElementById('live-btn').href = link;
   }
 
