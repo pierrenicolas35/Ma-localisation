@@ -5,21 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <title>Sécurité Famille</title>
+  <title>Alerte SOS</title>
   <style>
-    :root { --red: #e11d48; --blue: #2563eb; --bg: #f1f5f9; --text: #0f172a; }
+    :root { --red: #e11d48; --bg: #f1f5f9; --text: #0f172a; }
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; display: flex; justify-content: center; }
-    .app-container { width: 100%; max-width: 500px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; display: flex; justify-content: center; }
+    .app-container { width: 100%; max-width: 450px; }
     .card { background: white; padding: 18px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .data-group { display: grid; grid-template-columns: 1fr; gap: 15px; }
-    .data-item { border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+    .data-group { display: flex; flex-direction: column; gap: 12px; }
     .label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 800; }
-    .val { font-size: 0.9rem; font-weight: 700; margin-top: 2px; word-break: break-all; }
-    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: 700; text-decoration: none; margin-bottom: 15px; color: white; transition: opacity 0.2s; }
-    .btn-sos { background: var(--red); }
-    .btn-live { background: var(--blue); }
-    .material-icons { font-size: 22px; }
+    .val { font-size: 0.9rem; font-weight: 700; word-break: break-all; margin-top: 2px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 22px; border-radius: 12px; border: none; font-size: 1.3rem; font-weight: 800; text-decoration: none; color: white; background: var(--red); box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.3); transition: transform 0.1s; }
+    .btn:active { transform: scale(0.97); }
+    .config { text-align: center; font-size: 0.8rem; color: #94a3b8; margin-top: 20px; cursor: pointer; padding: 10px; }
   </style>
 </head>
 <body>
@@ -27,37 +25,22 @@
 <div class="app-container">
   <div class="card">
     <div class="data-group">
-      <div class="data-item">
-        <div class="label">Adresse</div>
-        <div class="val" id="address">Calcul...</div>
-      </div>
-      <div class="data-item">
-        <div class="label">GPS (Décimal)</div>
-        <div class="val" id="gps-dd">-</div>
-      </div>
-      <div class="data-item">
-        <div class="label">GPS (Degrés/Min/Sec)</div>
-        <div class="val" id="gps-dms">-</div>
-      </div>
+      <div><div class="label">Adresse</div><div class="val" id="address">Calcul...</div></div>
+      <div><div class="label">GPS (DD)</div><div class="val" id="gps-dd">-</div></div>
+      <div><div class="label">GPS (DMS)</div><div class="val" id="gps-dms">-</div></div>
     </div>
   </div>
 
-  <a id="sos-btn" class="btn btn-sos">
-    <span class="material-icons">emergency</span> SOS URGENT
+  <a id="sos-btn" class="btn">
+    <span class="material-icons" style="font-size:28px">emergency</span> SOS URGENT
   </a>
 
-  <a id="live-btn" class="btn btn-live" target="_blank">
-    <span class="material-icons">near_me</span> SUIVI TEMPS RÉEL
-  </a>
-
-  <div id="config" onclick="toggleConfig()" style="text-align:center; font-size:0.8rem; color:#94a3b8; cursor:pointer;">⚙️ Configuration</div>
+  <div class="config" onclick="toggleConfig()">⚙️ Configurer le numéro d'urgence</div>
 
   <div id="config-panel" class="card" style="display:none;">
-    <label style="font-size: 0.8rem; font-weight:bold;">Numéro SMS Urgence :</label>
-    <input id="cfg-phone" style="width:100%; padding:10px; margin: 5px 0 15px; border-radius:8px; border:1px solid #ccc;">
-    <label style="font-size: 0.8rem; font-weight:bold;">Lien "Partage" (Google Maps) :</label>
-    <input id="cfg-link" style="width:100%; padding:10px; margin: 5px 0 15px; border-radius:8px; border:1px solid #ccc;">
-    <button class="btn btn-live" onclick="saveConfig()" style="padding:10px">Enregistrer</button>
+    <label style="font-size: 0.8rem; font-weight:bold;">Numéro SMS d'urgence :</label>
+    <input id="cfg-phone" style="width:100%; padding:10px; margin: 8px 0 15px; border-radius:8px; border:1px solid #ccc;">
+    <button class="btn" style="padding:10px; font-size:1rem;" onclick="saveConfig()">Enregistrer</button>
   </div>
 </div>
 
@@ -78,7 +61,7 @@
     pos.lat = p.coords.latitude; 
     pos.lon = p.coords.longitude;
     pos.dd = `${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)}`;
-    pos.dms = `${toDMS(pos.lat, true)} / ${toDMS(pos.lon, false)}`;
+    pos.dms = `${toDMS(pos.lat, true)} ${toDMS(pos.lon, false)}`;
     
     document.getElementById('gps-dd').innerText = pos.dd;
     document.getElementById('gps-dms').innerText = pos.dms;
@@ -88,28 +71,25 @@
       .then(d => { 
         pos.addr = d.features[0]?.properties.label || "Adresse non trouvée"; 
         document.getElementById('address').innerText = pos.addr; 
-        updateLinks(); 
+        updateSMS(); 
       });
   }, null, {enableHighAccuracy: true});
 
-  function updateLinks() {
+  function updateSMS() {
     const phone = localStorage.getItem('cfg-phone') || "";
-    const link = localStorage.getItem('cfg-link') || "#";
-    document.getElementById('sos-btn').href = `sms:${phone}?body=SOS - Aide nécessaire. Position: ${pos.addr} | GPS(DD): ${pos.dd} | GPS(DMS): ${pos.dms} | Suivi Live: ${link}`;
-    document.getElementById('live-btn').href = link;
+    const msg = `SOS - Aide nécessaire. Adresse: ${pos.addr} | GPS(DD): ${pos.dd} | GPS(DMS): ${pos.dms}`;
+    document.getElementById('sos-btn').href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
   }
 
   function toggleConfig() { document.getElementById('config-panel').style.display = 'block'; }
   function saveConfig() {
     localStorage.setItem('cfg-phone', document.getElementById('cfg-phone').value);
-    localStorage.setItem('cfg-link', document.getElementById('cfg-link').value);
     document.getElementById('config-panel').style.display = 'none';
-    updateLinks();
+    updateSMS();
   }
 
   document.getElementById('cfg-phone').value = localStorage.getItem('cfg-phone') || "";
-  document.getElementById('cfg-link').value = localStorage.getItem('cfg-link') || "";
-  updateLinks();
+  updateSMS();
 </script>
 </body>
 </html>
