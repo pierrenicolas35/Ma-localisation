@@ -77,7 +77,13 @@
 
   function updateSMS() {
     const phone = localStorage.getItem('cfg-phone') || "";
-    const msg = `SOS - Aide nécessaire. Adresse: ${pos.addr} | GPS(DD): ${pos.dd} | GPS(DMS): ${pos.dms}`;
+    // Format structuré avec sauts de ligne pour lecture rapide
+    const msg = `SOS - Aide nécessaire\n` +
+                `--------------------------\n` +
+                `Adresse: ${pos.addr}\n` +
+                `GPS (DD): ${pos.dd}\n` +
+                `GPS (DMS): ${pos.dms}`;
+                
     document.getElementById('sos-btn').href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
   }
 
